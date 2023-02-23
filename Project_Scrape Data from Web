@@ -1,0 +1,79 @@
+#Project ini bertujuan untuk dapat ekstrak data dari web, untuk kemudian diolah
+
+
+from datetime import date, datetime, timedelta
+import pandas as pd
+import matplotlib.pyplot as plt
+import selenium
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+import time
+
+
+urls = ['https://www.vidio.com/live/6362-tvn',
+        'https://www.vidio.com/live/6482-daai-tv']
+
+today = date.today()
+getTomorrow = today + timedelta(days=3)
+getTomorrow_format = getTomorrow.strftime("%Y%m%d")
+file_dataDate = getTomorrow.strftime("%d-%m-%Y")
+
+
+for url in urls:
+    try:
+        nama_program = []
+        jam_tayang = []
+
+        
+        PATH = 'C:\webdrivers\chromedriver.exe'
+        driver = webdriver.Chrome(PATH)
+        driver.get(url)
+        driver.maximize_window()
+
+        time.sleep(3)
+        driver.implicitly_wait(20)
+        
+        driver.find_element(By.TAG_NAME, "Body").send_keys(Keys.PAGE_DOWN)
+        driver.find_element(By.TAG_NAME, "Body").send_keys(Keys.PAGE_DOWN)
+        time.sleep(3)
+        driver.implicitly_wait(10)
+
+        driver.find_element(By.XPATH, "//div[@id='livestreaming_main_fluid']/div/section/div[2]/div/button[11]").click()
+        driver.implicitly_wait(20)
+
+        schedules_a = driver.find_elements(By.XPATH, "//div[@id='livestreaming_main_fluid']/div/section/ul/li/div/div[1]")
+        programs_a = driver.find_elements(By.XPATH, "//div[@id='livestreaming_main_fluid']/div/section/ul/li/div/div[3]")
+        
+        for schedule_x in schedules_a:
+            jam_tayang.append(schedule_x.text)
+            driver.implicitly_wait(5)
+        for program_x in programs_a:
+            nama_program.append(program_x.text)
+            driver.implicitly_wait(5)
+
+
+        item_program = {
+            'jam_tayang': jam_tayang,
+            'nama_program': nama_program
+        }
+
+        df = pd.DataFrame(item_program)
+        print(df)
+
+        filename = url.split('/')[-1]
+        df.to_excel(
+            rf'C:\Users\Desktop\Hasil Extract\TV_Schedule_{filename}_{file_dataDate}.xlsx',
+            index=False,
+            sheet_name=f'{filename}'
+        )
+
+        driver.quit()
+    
+    except:
+        driver.quit()
+        pass
+
+
