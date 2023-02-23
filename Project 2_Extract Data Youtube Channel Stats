@@ -1,0 +1,59 @@
+###
+Code Python ini bertujuan untuk mengambil data Nama Channel, Jumlah Subscribers, Jumlah Views, dan Jumlah Video 
+yang sudah diupload dari Channel Youtube yang akan diambil datanya
+###
+
+#Code Python ini menggunakan Youtube Api Key V3
+
+
+import os
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors 
+import pandas as pd
+import seaborn as sbn
+import matplotlib.pyplot as plt
+
+api_key = 'Your API Key'
+channel_ids = [
+    'aaaaaaaaaaa',
+    'bbbbbbbbbbb',
+    'ccccccccccc',
+    'ddddddddddd'
+]
+
+youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=api_key)
+
+    #request client
+def one_channel_stat(youtube, channel_ids):
+    all_stat_channel = []
+    request = youtube.channels().list(
+        part = 'snippet,contentDetails,statistics',
+        id=','.join(channel_ids))
+    response = request.execute()
+
+    for i in range(len(response['items'])):
+        data = {
+            'channel_name' : response['items'][i]['snippet']['title'], 
+            'subscribers' : response['items'][i]['statistics']['subscriberCount'], 
+            'views' : response['items'][i]['statistics']['viewCount'], 
+            'total_video' : response['items'][i]['statistics']['videoCount']
+        }
+        all_stat_channel.append(data)
+    return all_stat_channel
+
+        
+one_channel = one_channel_stat(youtube, channel_ids)
+all_channel = pd.DataFrame(one_channel)
+
+all_channel['subscribers'] = pd.to_numeric(all_channel['subscribers'])
+all_channel['views'] = pd.to_numeric(all_channel['views'])
+all_channel['total_video'] = pd.to_numeric(all_channel['total_video'])
+
+
+print(all_channel)
+print(all_channel.dtypes)
+
+all_channel.to_csv(r"C:\Users\Desktop\Hasil Extract\Hasil_Extract.csv", sep=",", index=False)
+
+
