@@ -1,4 +1,5 @@
 #Project ini bertujuan untuk dapat ekstrak data dari web, untuk kemudian diolah
+#Data yang diambil H+3
 
 
 from datetime import date, datetime, timedelta
