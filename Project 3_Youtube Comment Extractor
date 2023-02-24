@@ -1,0 +1,87 @@
+#Code ini digunakan untuk ekstrak data Comment Video Youtube
+#Youtube Video's Comment Extractor --> Storing Data in DataFrame --> Extract Data in CSV Form
+
+#Code
+
+import os
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors 
+import pandas as pd
+import matplotlib.pyplot as plt
+
+api_key_1 = 'Your API Key Here'
+video_id = 'Video ID's goes here'
+
+youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey = api_key_1)
+
+author_item = []
+comment_item = []
+like_item = []
+publishedAt_item = []
+
+def getComment(youtube, video_id):
+    
+    comments_data = []
+    
+    request = youtube.commentThreads().list(
+        part="id,snippet,replies",
+        videoId=video_id,
+        maxResults=50
+    )
+    responseCloud = request.execute()
+#contoh video_ID OTeC-oEmJfM
+#iterate
+    for i in range(len(responseCloud['items'])):
+        author_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['authorDisplayName'])
+        comment_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['textDisplay'])
+        like_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['likeCount'])
+        publishedAt_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['publishedAt'])
+
+    next_page_token = responseCloud.get('nextPageToken')
+    more_pages = True
+
+    while more_pages:
+        if next_page_token is None:
+            more_pages = False
+        else:
+            request = youtube.commentThreads().list(
+                part="id,snippet,replies",
+                videoId=video_id,
+                maxResults=100,
+                pageToken=next_page_token)
+            responseCloud = request.execute()
+
+            for i in range(len(responseCloud['items'])):
+                author_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['authorDisplayName'])
+                comment_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['textDisplay'])
+                like_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['likeCount'])
+                publishedAt_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['publishedAt'])
+                
+            next_page_token = responseCloud.get('nextPageToken')
+        
+    comments_data = {
+        'author_name' : author_item,
+        'comment' : comment_item,
+        'likes' : like_item,
+        'published_date' : publishedAt_item
+    }
+        
+    return comments_data
+
+
+getComment(youtube, video_id)
+all_comment = getComment(youtube, video_id)
+all_comment
+df = pd.DataFrame(all_comment)
+df
+
+
+df.sort_values(by='likes', ascending=False)
+df_removeDuplicate = df.drop_duplicates(subset='comment')
+df_removeDuplicate.sort_values(by='likes', ascending=False)
+df_sorted = df_removeDuplicate.sort_values(by='likes', ascending=False)
+
+df_sorted
+df_sorted.to_csv(r"C:\Users\Desktop\Hasil Extract\youtube_comment_extract_part8.csv", sep=",", index=False)
+
