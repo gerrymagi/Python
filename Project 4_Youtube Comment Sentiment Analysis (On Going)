@@ -1,0 +1,190 @@
+#Project ini bertujuan untuk melakukan analisis Sentimen Analisis terhadap komentar video youtube
+#Project ini lanjutan dari Project 3
+#Uji Sentimen Analisis ini menggunakan Metode sederhana yaitu : Vader atau SIA (SentimentIntensityAnalyzer) 
+#Namun, Project ini belum selesai (On Going Project)
+
+
+import os
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors 
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from wordcloud import WordCloud
+import re
+from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+import string
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import nltk
+nltk.download('vader_lexicon')
+
+
+plt.style.use('fivethirtyeight')
+
+import nltk
+
+api_key_2 = 'Your API Key'
+video_id = ''
+
+
+youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=api_key_2)
+
+author_item = []
+comment_item = []
+like_item = []
+publishedAt_item = []
+
+def getComment(youtube, video_id):
+    
+    comments_data = []
+    
+    request = youtube.commentThreads().list(
+        part="id,snippet,replies",
+        videoId=video_id,
+        maxResults=100
+    )
+    responseCloud = request.execute()
+#contoh video_ID OTeC-oEmJfM
+#iterate
+    for i in range(len(responseCloud['items'])):
+        author_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['authorDisplayName'])
+        comment_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['textDisplay'])
+        like_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['likeCount'])
+        publishedAt_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['publishedAt'])
+
+    next_page_token = responseCloud.get('nextPageToken')
+    more_pages = True
+
+    while more_pages:
+        if next_page_token is None:
+            more_pages = False
+        else:
+            request = youtube.commentThreads().list(
+                part="id,snippet,replies",
+                videoId=video_id,
+                maxResults=100,
+                pageToken=next_page_token)
+            responseCloud = request.execute()
+
+            for i in range(len(responseCloud['items'])):
+                author_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['authorDisplayName'])
+                comment_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['textDisplay'])
+                like_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['likeCount'])
+                publishedAt_item.append(responseCloud['items'][i]['snippet']['topLevelComment']['snippet']['publishedAt'])
+                
+            next_page_token = responseCloud.get('nextPageToken')
+        
+    comments_data = {
+        'author_name' : author_item,
+        'comment' : comment_item,
+        'likes' : like_item,
+        'published_date' : publishedAt_item
+    }
+        
+    return comments_data
+
+comment_all = getComment(youtube, video_id)
+comment_all
+
+
+df = pd.DataFrame(comment_all)
+df
+
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from tqdm.notebook import tqdm
+
+sia = SentimentIntensityAnalyzer()
+
+from googletrans import Translator
+translator = Translator()
+df['comment_en'] = df['comment'].apply(lambda x: translator.translate(x, dest='en').text)
+
+def getNegSIA(comment_text_neg):
+    sia_comment_neg = sia.polarity_scores(comment_text_neg)['neg']
+    return sia_comment_neg
+
+df['negative'] = df['comment_en'].apply(getNegSIA)
+
+def getNeuSIA(comment_text_neu):
+    sia_comment_neu = sia.polarity_scores(comment_text_neu)['neu']
+    return sia_comment_neu
+
+df['neutral'] = df['comment_en'].apply(getNeuSIA)
+
+def getPosSIA(comment_text_pos):
+    sia_comment_pos = sia.polarity_scores(comment_text_pos)['pos']
+    return sia_comment_pos
+
+df['positive'] = df['comment_en'].apply(getPosSIA)
+
+def getCompound(comment_text_compound):
+    sia_comment_compound = sia.polarity_scores(comment_text_compound)['compound']
+    return sia_comment_compound
+
+df['compound'] = df['comment_en'].apply(getCompound)
+
+df.head()
+
+#Classifying Sentiment-Based Compound
+df.sort_values(by='compound', ascending=False).head(10)
+
+sentiment = []
+
+for i in range(len(df['compound'])):
+    if df['compound'][i] >= 0.05:
+        sentiment.append('Positif')
+    elif df['compound'][i] <= -0.05:
+        sentiment.append('Negatif')
+    else:
+        sentiment.append('Netral')
+
+
+df['rating'] = sentiment
+df
+
+
+#Sentiment Rating
+pos_total = df['rating'].value_counts()['Positif']
+neg_total = df['rating'].value_counts()['Negatif']
+neu_total = df['rating'].value_counts()['Netral']
+
+pos_percentage = pos_total/(pos_total+neg_total+neu_total) *100
+neg_total = neg_total/(pos_total+neg_total+neu_total) *100
+neu_total = neu_total/(pos_total+neg_total+neu_total) *100
+
+df['rating'].value_counts().plot(kind='bar', figsize=(10, 6))
+plt.savefig('contohSentimentAnalysis_Hor.png', bbox_inches = 'tight')
+
+
+
+
+
+from dateutil import parser
+
+def getDateObj(x):
+    dtime = parser.parse(x)
+    return dtime
+    
+
+df['new_published_date'] = df['published_date'].apply(getDateObj)    
+
+from datetime import datetime as dt
+df['new_month'] = df['new_published_date'].dt.strftime('%d-%m-%Y')
+
+df.shape
+df.drop(columns='published_date', inplace=True)
+df.reset_index()
+
+df.set_index('new_month')
+
+df.drop(columns='new_published_date', inplace=True)
+df.set_index('new_month', inplace=True)
+
+df.sort_values(by='likes', ascending=False)[:21]
+
+
+
+#UnFinished Project
